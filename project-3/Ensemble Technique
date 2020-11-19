@@ -1,0 +1,996 @@
+
+Table of Contents
+0.1  Data Description:
+0.2  Domain:
+0.3  Context:
+0.4  Attribute Information:
+0.5  Learning Outcomes:
+0.6  Objective
+1  Importing Packages and Reading file as DataFrame
+2  Exploratory Data Analysis
+2.1  Shape of the data
+2.2  Data type of each attribute
+2.3  Checking the presence of missing values
+2.4  5 point summary of numerical attribute
+2.4.1  5 point summary understanding:
+2.5  Distribution of numerical columns.
+2.5.1  Understanding from distributions
+2.6  Distribution of Categorical columns.
+2.6.1  Understanding from distributions
+2.7  Measure of skewness of numerical columns
+2.8  Checking the presence of outliers
+2.8.1  Understanding from boxplots
+2.9  Distribution of Target column
+3  Data Preprocessing:
+3.1  Label Encoding of variables
+3.2  Checking & modifying datatypes after Label Encoding
+3.3  Handeling Outliers with mean replacement
+3.3.1  Understanding from boxplots after handeling outliers
+3.4  Corr plot of all features
+3.4.1  Understanding from above corrp plot:
+3.5  Removing columns:
+4  Pairplot of features
+5  Train Test Split (70:30)
+6  Scaling of columns
+7  Models:
+7.1  Logistic Regression:
+7.2  Naive Bayes
+7.3  K-Nearest Neighbor
+7.4  SVC
+8  Ensemble Models
+8.1  Decision Tree
+8.2  Feature importance test for decision tree
+8.3  Pruning of Decision Tree
+8.4  Bagging
+8.5  Adaptive Boosting
+8.6  Gradient boosting
+8.7  Random Forest
+9  Models with accuracy scores
+10  Conclusion:
+10.1  Comments on dataset:
+10.2  Comments on Models:
+10.3  Miscellaneous Comments:
+Data Description:  
+The data is related with direct marketing campaigns of a  Portuguese banking institution. The marketing campaigns  were based on phone calls. Often, more than one contact to  the same client was required, in order to access if the product  (bank term deposit) would be ('yes') or not ('no') subscribed.  
+Domain:  
+Banking 
+Context: 
+Leveraging customer information is paramount for most  businesses. In the case of a bank, attributes of customers like  the ones mentioned below can be crucial in strategizing a  marketing campaign when launching a new product. 
+Attribute Information: 
+age (numeric) 
+job : type of job (categorical:  'admin.','blue-collar','entrepreneur','housemaid','manage ment','retired','self-employed','services','student','technicia n','unemployed','unknown') 
+marital : marital status (categorical:  'divorced','married','single','unknown'; note: 'divorced'  means divorced or widowed) 
+education (categorical: 'basic.4y','basic.6y','basic.9y','high.school','illiterate','profes sional.course','university.degree','unknown') 
+default: has credit in default? (categorical:  'no','yes','unknown') 
+balance: average yearly balance, in euros (numeric) 
+housing: has housing loan? (categorical:  'no','yes','unknown') 
+loan: has personal loan? (categorical: 'no','yes','unknown') 
+contact: contact communication type (categorical:  'cellular','telephone') 
+day: last contact day of the month (numeric 1 -31)  
+month: last contact month of year (categorical: 'jan', 'feb',  'mar', ..., 'nov', 'dec') 
+duration: last contact duration, in seconds (numeric).  Important note: this attribute highly affects the output  target (e.g., if duration=0 then y='no'). Yet, the duration is  not known before a call is performed. Also, after the end  of the call y is obviously known. Thus, this input should  only be included for benchmark purposes and should be  discarded if the intention is to have a realistic predictive  model. 
+campaign: number of contacts performed during this  campaign and for this client (numeric, includes last  contact) 
+pdays: number of days that passed by after the client  was last contacted from a previous campaign (numeric;  999 means client was not previously contacted) 
+previous: number of contacts performed before this  campaign and for this client (numeric) 
+poutcome: outcome of the previous marketing  campaign (categorical: 'failure','nonexistent','success') 
+target: has the client subscribed a term deposit? (binary:  "yes","no") 
+Learning Outcomes:  
+Exploratory Data Analysis 
+Preparing the data to train a model 
+Training and making predictions using an Ensemble  Model 
+Tuning an Ensemble model   
+Objective 
+The classification goal is to predict if the client will subscribe  (yes/no) a term deposit (variable y). 
+Importing Packages and Reading file as DataFrame
+In [1]:
+import numpy as np #import numpy
+import pandas as pd #import pandas
+import seaborn as sns # import seaborn
+import matplotlib.pyplot as plt #import pyplot
+from scipy.stats import pearsonr #for pearson's correlation
+
+from sklearn.model_selection import train_test_split #for splitting the data in train and test
+from sklearn.preprocessing import StandardScaler,MinMaxScaler,RobustScaler #for various scaling methods
+from sklearn.linear_model import LogisticRegression #for LogisticRegression
+from sklearn.naive_bayes import GaussianNB #for NaiveBayes
+from sklearn.neighbors import KNeighborsClassifier #for KNN
+from sklearn.svm import SVC #for Support vector classifier
+
+
+from sklearn.tree import DecisionTreeClassifier
+#from sklearn.feature_extraction.text import CountVectorizer  #DT does not take strings as input for the model fit step....
+from IPython.display import Image  #for image
+from sklearn import tree #for tree
+from os import system #using user environment
+from sklearn.ensemble import BaggingClassifier #for bagging classifier
+from sklearn.ensemble import AdaBoostClassifier #for adaptive boosting
+from sklearn.ensemble import GradientBoostingClassifier #for gradient boosting
+from sklearn.ensemble import RandomForestClassifier #for random forest
+from sklearn.preprocessing import LabelEncoder #for lebel encoder
+
+from sklearn.tree import export_graphviz #for exporting dot data
+from sklearn.externals.six import StringIO  #for stringIO
+from IPython.display import Image  #for including image
+import pydotplus #for dot data
+import graphviz #for visualizing decision tree
+from statistics import median,mean
+
+from sklearn.metrics import accuracy_score,confusion_matrix,recall_score #for accuracy matrices
+from sklearn.metrics import precision_score,classification_report,roc_auc_score,precision_score #for accuracy matrices
+C:\Users\Ajay\Anaconda3\lib\site-packages\sklearn\externals\six.py:31: DeprecationWarning: The module is deprecated in version 0.21 and will be removed in version 0.23 since we've dropped support for Python 2.7. Please rely on the official version of six (https://pypi.org/project/six/).
+  "(https://pypi.org/project/six/).", DeprecationWarning)
+In [2]:
+DataFrame = pd.read_csv('Bank-full.csv') #reading the CSV file
+DataFrame.head() #to check head of the dataframe
+Out[2]:
+age	job	marital	education	default	balance	housing	loan	contact	day	month	duration	campaign	pdays	previous	poutcome	Target
+0	58	management	married	tertiary	no	2143	yes	no	unknown	5	may	261	1	-1	0	unknown	no
+1	44	technician	single	secondary	no	29	yes	no	unknown	5	may	151	1	-1	0	unknown	no
+2	33	entrepreneur	married	secondary	no	2	yes	yes	unknown	5	may	76	1	-1	0	unknown	no
+3	47	blue-collar	married	unknown	no	1506	yes	no	unknown	5	may	92	1	-1	0	unknown	no
+4	33	unknown	single	unknown	no	1	no	no	unknown	5	may	198	1	-1	0	unknown	no
+In [3]:
+DataFrame.tail() #to check tail of the dataframe
+Out[3]:
+age	job	marital	education	default	balance	housing	loan	contact	day	month	duration	campaign	pdays	previous	poutcome	Target
+45206	51	technician	married	tertiary	no	825	no	no	cellular	17	nov	977	3	-1	0	unknown	yes
+45207	71	retired	divorced	primary	no	1729	no	no	cellular	17	nov	456	2	-1	0	unknown	yes
+45208	72	retired	married	secondary	no	5715	no	no	cellular	17	nov	1127	5	184	3	success	yes
+45209	57	blue-collar	married	secondary	no	668	no	no	telephone	17	nov	508	4	-1	0	unknown	no
+45210	37	entrepreneur	married	secondary	no	2971	no	no	cellular	17	nov	361	2	188	11	other	no
+Exploratory Data Analysis
+Shape of the data
+In [4]:
+print('\033[1m''Number of rows in dataframe',DataFrame.shape[0]) #for number of rows
+print('\033[1m''Number of features in dataframe',DataFrame.shape[1]) #for number of features
+Number of rows in dataframe 45211
+Number of features in dataframe 17
+The dataset has 45211 rows and 17 columns(features)
+Data type of each attribute
+In [5]:
+DataFrame.dtypes.to_frame('Datatypes of attributes').T #for datatypes of attributes
+Out[5]:
+age	job	marital	education	default	balance	housing	loan	contact	day	month	duration	campaign	pdays	previous	poutcome	Target
+Datatypes of attributes	int64	object	object	object	object	int64	object	object	object	int64	object	int64	int64	int64	int64	object	object
+10 features have object datatype and 7 have int datatype
+As per given data we know that 10 features are of category type,so lets convert the datatype of those features
+In [6]:
+DataFrame[['job','marital','education','default','housing','loan','contact','month','poutcome','Target']] = DataFrame[['job','marital','education','default','housing','loan','contact','month','poutcome','Target']].apply(pd.Categorical)
+DataFrame.dtypes.to_frame('Datatypes of attributes').T #for datatypes of attributes
+Out[6]:
+age	job	marital	education	default	balance	housing	loan	contact	day	month	duration	campaign	pdays	previous	poutcome	Target
+Datatypes of attributes	int64	category	category	category	category	int64	category	category	category	int64	category	int64	int64	int64	int64	category	category
+After conversion of datatypes in above step
+10 features have category datatype and 7 have int datatype
+Checking the presence of missing values
+In [7]:
+DataFrame.isnull().sum().to_frame('Presence of missing values').T #for checking presence of missing values
+Out[7]:
+age	job	marital	education	default	balance	housing	loan	contact	day	month	duration	campaign	pdays	previous	poutcome	Target
+Presence of missing values	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+In above cell, missing values are not found, so checking columns where unknown is mentioned
+Checking columns which contain string data
+In [8]:
+DataFrame['poutcome'].value_counts() #For count of unique values in poutcome
+Out[8]:
+unknown    36959
+failure     4901
+other       1840
+success     1511
+Name: poutcome, dtype: int64
+In [9]:
+DataFrame['contact'].value_counts() #For count of unique values in contact
+Out[9]:
+cellular     29285
+unknown      13020
+telephone     2906
+Name: contact, dtype: int64
+In [10]:
+DataFrame['education'].value_counts() #For count of unique values in education
+Out[10]:
+secondary    23202
+tertiary     13301
+primary       6851
+unknown       1857
+Name: education, dtype: int64
+In [11]:
+DataFrame['job'].value_counts() #For count of unique values in job
+Out[11]:
+blue-collar      9732
+management       9458
+technician       7597
+admin.           5171
+services         4154
+retired          2264
+self-employed    1579
+entrepreneur     1487
+unemployed       1303
+housemaid        1240
+student           938
+unknown           288
+Name: job, dtype: int64
+The dataset has unknown values in 'job','education','contact' and 'poutcome' columns
+5 point summary of numerical attribute
+In [12]:
+DataFrame.describe().T #for 5 point summary
+Out[12]:
+count	mean	std	min	25%	50%	75%	max
+age	45211.0	40.936210	10.618762	18.0	33.0	39.0	48.0	95.0
+balance	45211.0	1362.272058	3044.765829	-8019.0	72.0	448.0	1428.0	102127.0
+day	45211.0	15.806419	8.322476	1.0	8.0	16.0	21.0	31.0
+duration	45211.0	258.163080	257.527812	0.0	103.0	180.0	319.0	4918.0
+campaign	45211.0	2.763841	3.098021	1.0	1.0	2.0	3.0	63.0
+pdays	45211.0	40.197828	100.128746	-1.0	-1.0	-1.0	-1.0	871.0
+previous	45211.0	0.580323	2.303441	0.0	0.0	0.0	0.0	275.0
+5 point summary understanding:
+Outliers are present in 'age', 'balance', 'duration', 'campaign', 'pdays' and 'previous' columns.
+'balance', 'duration', 'campaign', 'pdays' and 'previous' are right skewed.
+More than 75% people have been contacted in a day after previous campaign as pdays is -1 till 75th precentile
+Minimum balance is -8019 and maximum balance is 102127
+Minimum age is 18 years and maximum is 95 years
+In [13]:
+DataFrame.loc[DataFrame['pdays'] == 999]
+Out[13]:
+age	job	marital	education	default	balance	housing	loan	contact	day	month	duration	campaign	pdays	previous	poutcome	Target
+All customers have been contacted previously
+Distribution of numerical columns.
+In [14]:
+fig, axe = plt.subplots(nrows=4, ncols=2, figsize=(10, 15)) 
+axe = axe.flatten() #to flatten subplot index positions
+sns.distplot(DataFrame['age'],ax=axe[0]) #Distance plot of 'age'
+sns.distplot(DataFrame['balance'],ax=axe[1]) #Distance plot of 'balance'
+sns.distplot(DataFrame['day'],ax=axe[2]) #Distance plot of 'day'
+sns.distplot(DataFrame['duration'],ax=axe[3]) #Distance plot of 'duration'
+sns.distplot(DataFrame['campaign'],ax=axe[4]) #Distance plot of 'campaign'
+sns.distplot(DataFrame['pdays'],ax=axe[5]) #Distance plot of 'pdays'
+sns.distplot(DataFrame['previous'],ax=axe[6]) #Distance plot of 'previous'
+fig.tight_layout() #for arranging the plots
+fig.show() #display plots
+axe.flat[-1].set_visible(False)
+C:\Users\Ajay\Anaconda3\lib\site-packages\ipykernel_launcher.py:11: UserWarning: Matplotlib is currently using module://ipykernel.pylab.backend_inline, which is a non-GUI backend, so cannot show the figure.
+  # This is added back by InteractiveShellApp.init_path()
+
+Understanding from distributions
+'balance', 'duration', 'campaign', 'pdays' and 'previous' are right skewed.
+'age' is somewhat normally distributed
+Distribution of Categorical columns.
+In [15]:
+fig, axe = plt.subplots(nrows=5, ncols=2, figsize=(10, 18)) 
+axe = axe.flatten() #to flatten subplot index positions
+plot=sns.countplot(x=DataFrame['job'],data=DataFrame,ax=axe[0]) #Countplot of 'job' 
+plt.setp(plot.get_xticklabels(), rotation=90)
+sns.countplot(x=DataFrame['marital'],data=DataFrame,ax=axe[1]) #Countplot of 'marital' 
+sns.countplot(x=DataFrame['education'],data=DataFrame,ax=axe[2]) #Countplot of 'education' 
+sns.countplot(x=DataFrame['default'],data=DataFrame,ax=axe[3]) #Countplot of 'default' 
+sns.countplot(x=DataFrame['housing'],data=DataFrame,ax=axe[4]) #Countplot of 'housing' 
+sns.countplot(x=DataFrame['loan'],data=DataFrame,ax=axe[5]) #Countplot of 'loan' 
+sns.countplot(x=DataFrame['contact'],data=DataFrame,ax=axe[6]) #Countplot of 'contact' 
+sns.countplot(x=DataFrame['month'],data=DataFrame,ax=axe[7]) #Countplot of 'month' 
+sns.countplot(x=DataFrame['poutcome'],data=DataFrame,ax=axe[8]) #Countplot of 'poutcome' 
+sns.countplot(x=DataFrame['Target'],data=DataFrame,ax=axe[9]) #Countplot of 'target' 
+fig.tight_layout() #for arranging the plots
+fig.show() #display plots
+C:\Users\Ajay\Anaconda3\lib\site-packages\ipykernel_launcher.py:15: UserWarning: Matplotlib is currently using module://ipykernel.pylab.backend_inline, which is a non-GUI backend, so cannot show the figure.
+  from ipykernel import kernelapp as app
+
+Understanding from distributions
+More than 90% customers have no default credit
+Around 88% customers have not subscribed for term deposit
+Most customers have been contacted in may
+Most customers have been contacted by cellular network(mobile phone)
+Number of customers who have housing loan is more than the number of customers who don't have housing loan
+Around 6% customers have credit in default
+Measure of skewness of numerical columns
+In [16]:
+DataFrame.skew().to_frame('Skewness measure').T #for measure of skewness
+Out[16]:
+age	balance	day	duration	campaign	pdays	previous
+Skewness measure	0.684818	8.360308	0.093079	3.144318	4.89865	2.615715	41.846454
+Checking the presence of outliers
+In [17]:
+fig, axe = plt.subplots(nrows=4, ncols=2, figsize=(10, 12))
+axe = axe.flatten()#to flatten subplot index positions
+sns.boxplot(x='age',data=DataFrame,color='springgreen',ax=axe[0]) #Box plot of 'ID' for finding outliers 
+sns.boxplot(x='balance',data=DataFrame,color='springgreen',ax=axe[1]) #Box plot of 'Family' 
+sns.boxplot(x='day',data=DataFrame,color='springgreen',ax=axe[2]) #Box plot of 'Personal Loan' 
+sns.boxplot(x='duration',data=DataFrame,color='springgreen',ax=axe[3]) #Box plot of 'CD Account' 
+sns.boxplot(x='campaign',data=DataFrame,color='springgreen',ax=axe[4]) #Box plot of 'Online' 
+sns.boxplot(x='pdays',data=DataFrame,color='springgreen',ax=axe[5]) #Box plot of 'CreditCard'
+sns.boxplot(x='previous',data=DataFrame,color='springgreen',ax=axe[6]) #Box plot of 'CreditCard' 
+fig.tight_layout() #for arranging the plots
+fig.show() #display plots
+axe.flat[-1].set_visible(False)
+C:\Users\Ajay\Anaconda3\lib\site-packages\ipykernel_launcher.py:11: UserWarning: Matplotlib is currently using module://ipykernel.pylab.backend_inline, which is a non-GUI backend, so cannot show the figure.
+  # This is added back by InteractiveShellApp.init_path()
+
+Understanding from boxplots
+Prove the existance of outliers in 'age', 'balance', 'duration', 'campaign', 'pdays' and 'previous' columns.
+Values less than 0 are present in 'Balance' column
+Distribution of Target column
+In [18]:
+DataFrame['Target'].value_counts().to_frame('Target column distriution') # Value counts of Target column
+Out[18]:
+Target column distriution
+no	39922
+yes	5289
+From above values it can be stated that the dataset is imbalanced.
+Data Preprocessing:
+Label Encoding of variables
+In [19]:
+df_2 = DataFrame.copy() #making a copy of dataframe 'df_2'
+encoder = LabelEncoder() #creating object of LabelEncoder 
+df_2['default'] = encoder.fit_transform(df_2['default']).astype(int) #encoding 'default' column 
+df_2['marital'] = encoder.fit_transform(df_2['marital']).astype(int) #encoding 'marital' column and assigning 1 married, 2 divorced and 3 single 
+df_2['loan'] = encoder.fit_transform(df_2['loan']).astype(int) #encoding 'loan' column and assigning 0 no and 1 yes values
+df_2['housing'] = encoder.fit_transform(df_2['housing']).astype(int) #encoding 'housing' column and assigning 0 no and 1 yes values
+df_2['Target'] = encoder.fit_transform(df_2['Target']).astype(int) #encoding 'target' column and assigning 0 no and 1 yes values
+df_2['month'] = encoder.fit_transform(df_2['month']).astype(int)#encoding 'month' column and assigning 0-11 values
+df_2['poutcome'] = encoder.fit_transform(df_2['poutcome']).astype(int)#encoding 'month' column and assigning 0-11 values
+df_2['education'] = encoder.fit_transform(df_2['education']).astype(int)#encoding 'month' column and assigning 0-11 values
+df_2.head() #displaying head of encoded dataframe
+Out[19]:
+age	job	marital	education	default	balance	housing	loan	contact	day	month	duration	campaign	pdays	previous	poutcome	Target
+0	58	management	1	2	0	2143	1	0	unknown	5	8	261	1	-1	0	3	0
+1	44	technician	2	1	0	29	1	0	unknown	5	8	151	1	-1	0	3	0
+2	33	entrepreneur	1	1	0	2	1	1	unknown	5	8	76	1	-1	0	3	0
+3	47	blue-collar	1	3	0	1506	1	0	unknown	5	8	92	1	-1	0	3	0
+4	33	unknown	2	3	0	1	0	0	unknown	5	8	198	1	-1	0	3	0
+Checking & modifying datatypes after Label Encoding
+In [20]:
+df_2.info()
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 45211 entries, 0 to 45210
+Data columns (total 17 columns):
+age          45211 non-null int64
+job          45211 non-null category
+marital      45211 non-null int32
+education    45211 non-null int32
+default      45211 non-null int32
+balance      45211 non-null int64
+housing      45211 non-null int32
+loan         45211 non-null int32
+contact      45211 non-null category
+day          45211 non-null int64
+month        45211 non-null int32
+duration     45211 non-null int64
+campaign     45211 non-null int64
+pdays        45211 non-null int64
+previous     45211 non-null int64
+poutcome     45211 non-null int32
+Target       45211 non-null int32
+dtypes: category(2), int32(8), int64(7)
+memory usage: 3.9 MB
+In [21]:
+df_2[['job','marital','education','default','housing','loan','contact','month','poutcome','Target']] = df_2[['job','marital','education','default','housing','loan','contact','month','poutcome','Target']].apply(pd.Categorical)
+#changing datatypes of attributes
+In [22]:
+df_2.info()
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 45211 entries, 0 to 45210
+Data columns (total 17 columns):
+age          45211 non-null int64
+job          45211 non-null category
+marital      45211 non-null category
+education    45211 non-null category
+default      45211 non-null category
+balance      45211 non-null int64
+housing      45211 non-null category
+loan         45211 non-null category
+contact      45211 non-null category
+day          45211 non-null int64
+month        45211 non-null category
+duration     45211 non-null int64
+campaign     45211 non-null int64
+pdays        45211 non-null int64
+previous     45211 non-null int64
+poutcome     45211 non-null category
+Target       45211 non-null category
+dtypes: category(10), int64(7)
+memory usage: 2.8 MB
+Handeling Outliers with mean replacement
+In [23]:
+meanbal = float(df_2['balance'].mean()) #mean balance
+df_2['balance'] = np.where(df_2['balance'] >np.percentile(df_2['balance'], 75), meanbal,df_2['balance']) #replacing with mean
+
+meandur = float(df_2['duration'].mean()) #mean duration
+df_2['duration'] = np.where(df_2['duration'] >np.percentile(df_2['duration'], 75), meandur,df_2['duration'])#replacing with mean
+
+meancam = float(df_2['campaign'].mean()) #mean campaign
+df_2['campaign'] = np.where(df_2['campaign'] >np.percentile(df_2['campaign'], 75), meancam,df_2['campaign'])#replacing with mean
+
+meanpd = float(df_2['pdays'].mean()) #mean pdays
+df_2['pdays'] = np.where(df_2['pdays'] >np.percentile(df_2['pdays'], 75), meanpd,df_2['pdays'])#replacing with mean
+
+meanpr = float(df_2['previous'].mean()) #mean previous
+df_2['previous'] = np.where(df_2['previous'] >np.percentile(df_2['previous'], 75),meanpr ,df_2['previous'])#replacing with mean
+
+
+
+fig, axe = plt.subplots(nrows=4, ncols=2, figsize=(10, 12))
+axe = axe.flatten()#to flatten subplot index positions
+sns.boxplot(x='age',data=df_2,color='springgreen',ax=axe[0]) #Box plot of 'ID' for finding outliers 
+sns.boxplot(x='balance',data=df_2,color='springgreen',ax=axe[1]) #Box plot of 'Family' 
+sns.boxplot(x='day',data=df_2,color='springgreen',ax=axe[2]) #Box plot of 'Personal Loan' 
+sns.boxplot(x='duration',data=df_2,color='springgreen',ax=axe[3]) #Box plot of 'CD Account' 
+sns.boxplot(x='campaign',data=df_2,color='springgreen',ax=axe[4]) #Box plot of 'Online' 
+sns.boxplot(x='pdays',data=df_2,color='springgreen',ax=axe[5]) #Box plot of 'CreditCard'
+sns.boxplot(x='previous',data=df_2,color='springgreen',ax=axe[6]) #Box plot of 'CreditCard' 
+fig.tight_layout() #for arranging the plots
+fig.show() #display plots
+axe.flat[-1].set_visible(False)
+print('\033[1m''Boxplots after handeling outliers')
+C:\Users\Ajay\Anaconda3\lib\site-packages\ipykernel_launcher.py:28: UserWarning: Matplotlib is currently using module://ipykernel.pylab.backend_inline, which is a non-GUI backend, so cannot show the figure.
+Boxplots after handeling outliers
+
+Understanding from boxplots after handeling outliers
+Outliers in 'age' column are not handled because it is a specific value for each record.
+After handeling Outliers in 'balance', the number of outliers on the lower side is increased.
+In [24]:
+#df_2 = pd.get_dummies(df_2,columns=['housing','default','loan','poutcome'])
+Corr plot of all features
+In [25]:
+plt.figure(figsize=(15,10)) #for adjusting figuresize
+sns.heatmap(df_2.corr(),annot=True) #for correlation plot
+Out[25]:
+<matplotlib.axes._subplots.AxesSubplot at 0x1bc840b2b38>
+
+Understanding from above corrp plot:
+'pdays' and 'previous' are highly correlated
+Removing columns:
+'job','education' and 'contact' attributes contain multiple unknown values.
+As they are specific string values and not numerical so cannot be treated with median, mean replacement
+As per data description, duration attribute is removed to have a realistic prediction.
+'day' and 'month' of contact will not have any realtionship with customer opting for subscription
+'pdays' and 'previous' are highly correlated so removing any one from both of them.
+Even though 'poutcome' has a huge number of 'Unknown' values, it is kept because 'poutcome' is outcome of the previous marketing campaign. Which can help in better training and testing of models.
+In [26]:
+df_2 = df_2.drop(['job','education','contact','duration','pdays','day','month'],axis=1) #Dropping 'job','education','contact','poutcome','duration','day','month' columns
+df_2.head() #Head of updated dataframe
+Out[26]:
+age	marital	default	balance	housing	loan	campaign	previous	poutcome	Target
+0	58	1	0	1362.272058	1	0	1.0	0.0	3	0
+1	44	2	0	29.000000	1	0	1.0	0.0	3	0
+2	33	1	0	2.000000	1	1	1.0	0.0	3	0
+3	47	1	0	1362.272058	1	0	1.0	0.0	3	0
+4	33	2	0	1.000000	0	0	1.0	0.0	3	0
+Pairplot of features
+In [27]:
+sns.pairplot(df_2) #Pairplot of all features
+Out[27]:
+<seaborn.axisgrid.PairGrid at 0x1bc83776a90>
+
+Train Test Split (70:30)
+In [28]:
+X = df_2.drop('Target',axis=1) #independent dimensions  
+y = df_2['Target'] #selecting target column
+X_train,X_test,y_train,y_test = train_test_split(X,y,test_size=0.30,random_state=1) #train test split in 70:30 ratio
+Scaling of columns
+In [29]:
+scaler = StandardScaler() #using standard scaler method
+X_train_scaled = scaler.fit_transform(X_train) #Scaling of Train dataset
+X_test_scaled = scaler.fit_transform(X_test) #Scaling of Test dataset
+Models:
+Logistic Regression:
+In [30]:
+logic_r = LogisticRegression(solver='liblinear') #Instantiate the LogisticRegression object
+logic_r.fit(X_train_scaled,y_train) #Call the fit method of logistic regression to train the model or to learn the parameters of model
+y_pred = logic_r.predict(X_test_scaled) #Predict
+In [31]:
+print('\033[1m''->'*63)
+print('\033[1m''Confusion Matrix\n',confusion_matrix(y_test,y_pred)) #for confusion matrix
+print('-'*40)
+LR_accuracy = accuracy_score(y_test,y_pred)
+print('Accuracy of Logistic Regression :{:.2f}'.format(LR_accuracy)) #for accuracy score
+print('-'*40)
+print('\n Classification Report\n',classification_report(y_test,y_pred)) #for classification report
+print('->'*63)
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+Confusion Matrix
+ [[11897   116]
+ [ 1310   241]]
+----------------------------------------
+Accuracy of Logistic Regression :0.89
+----------------------------------------
+
+ Classification Report
+               precision    recall  f1-score   support
+
+           0       0.90      0.99      0.94     12013
+           1       0.68      0.16      0.25      1551
+
+    accuracy                           0.89     13564
+   macro avg       0.79      0.57      0.60     13564
+weighted avg       0.87      0.89      0.86     13564
+
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+Naive Bayes
+In [32]:
+NB = GaussianNB()   #Instantiate the Gaussian Naive bayes 
+NB.fit(X_train_scaled,y_train) #Call the fit method of NB to train the model or to learn the parameters of model
+y_predi = NB.predict(X_test_scaled) #Predict
+In [33]:
+print('\033[1m''->'*63)
+print('\033[1m''Confusion Matrix\n',confusion_matrix(y_test,y_predi)) #for confusion matrix
+print('-'*30)
+NB_accuracy = accuracy_score(y_test,y_predi)
+print('Accuracy of Naive Bayes :{:.2f}'.format(NB_accuracy)) #for accuracy score
+print('-'*30)
+print('\n Classification Report\n',classification_report(y_test,y_predi)) #for classification report
+print('->'*63)
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+Confusion Matrix
+ [[10745  1268]
+ [ 1045   506]]
+------------------------------
+Accuracy of Naive Bayes :0.83
+------------------------------
+
+ Classification Report
+               precision    recall  f1-score   support
+
+           0       0.91      0.89      0.90     12013
+           1       0.29      0.33      0.30      1551
+
+    accuracy                           0.83     13564
+   macro avg       0.60      0.61      0.60     13564
+weighted avg       0.84      0.83      0.83     13564
+
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+K-Nearest Neighbor
+In [34]:
+# k=3
+knn = KNeighborsClassifier(n_neighbors = 3)  #Instantiate KNN with k=3
+knn.fit(X_train_scaled,y_train) #Call the fit method of KNN to train the model or to learn the parameters of model
+y_predict = knn.predict(X_test_scaled) #Predict 
+
+print('\033[1m''->'*63)
+print('\033[1m''Confusion Matrix\n',confusion_matrix(y_test,y_predi)) #for confusion matrix
+print('-'*30)
+KNN_accuracy = accuracy_score(y_test,y_predict)
+print('Accuracy of KNN :{:.2f}'.format(KNN_accuracy)) #for accuracy score
+print('-'*30)
+print('\n Classification Report\n',classification_report(y_test,y_predi)) #for classification report
+print('->'*63)
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+Confusion Matrix
+ [[10745  1268]
+ [ 1045   506]]
+------------------------------
+Accuracy of KNN :0.87
+------------------------------
+
+ Classification Report
+               precision    recall  f1-score   support
+
+           0       0.91      0.89      0.90     12013
+           1       0.29      0.33      0.30      1551
+
+    accuracy                           0.83     13564
+   macro avg       0.60      0.61      0.60     13564
+weighted avg       0.84      0.83      0.83     13564
+
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+In [35]:
+oddList = list(np.arange(1,15)) #Range from 1 to 15
+neighbors = list(filter(lambda x: x % 2 != 0, oddList)) #Selecting only odd numbers from Range 1 to 24
+
+accuracy_list = [] #Empty list to store accuracy scores of KNN models based on various K values
+
+for i in neighbors:
+    knn = KNeighborsClassifier(n_neighbors = i) #Instantiate KNN with k=i
+    knn.fit(X_train_scaled,y_train)  #Call the fit method of KNN to train the model or to learn the parameters of model
+    y_pred = knn.predict(X_test_scaled) #Predict 
+    accuracy_s = accuracy_score(y_test,y_pred) #for accuracy score
+    accuracy_list.append(accuracy_s)  #for appedning accuracy score to accuracy score list
+    
+MSE=[1 - j for j in accuracy_list] #calculation of Mean Squared Error
+
+optimal = neighbors[MSE.index(min(MSE))] #Optimal K value selected by minimum MSE
+print('optimal k is',optimal) #Print optimal K value selected by minimum MSE
+
+plt.plot(neighbors,MSE) #MSE plot 
+plt.xlabel('Number of Neighbors K') #XLabel
+plt.ylabel('Misclassification Error') #YLabel
+plt.show() #display plot
+optimal k is 13
+
+SVC
+In [36]:
+svc = SVC()  #Instantiate SVC
+svc.fit(X_train_scaled,y_train) #Call the fit method of SVC to train the model or to learn the parameters of model
+predicted_svc = svc.predict(X_test_scaled) #Predict 
+
+print('\033[1m''->'*63)
+print('\033[1m''Confusion Matrix\n',confusion_matrix(y_test,predicted_svc)) #for confusion matrix
+print('-'*30)
+SVC_accuracy = accuracy_score(y_test,predicted_svc) #for accuracy score
+print('Accuracy of SVC :',SVC_accuracy)
+print('-'*30)
+print('\n Classification Report\n',classification_report(y_test,predicted_svc)) #for classification report
+print('->'*63)
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+Confusion Matrix
+ [[11867   146]
+ [ 1273   278]]
+------------------------------
+Accuracy of SVC : 0.8953848422294308
+------------------------------
+
+ Classification Report
+               precision    recall  f1-score   support
+
+           0       0.90      0.99      0.94     12013
+           1       0.66      0.18      0.28      1551
+
+    accuracy                           0.90     13564
+   macro avg       0.78      0.58      0.61     13564
+weighted avg       0.87      0.90      0.87     13564
+
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+Ensemble Models
+Decision Tree
+In [37]:
+dTree = DecisionTreeClassifier(criterion = 'gini', random_state=1) #Instantiate Decision Tree
+dTree.fit(X_train, y_train) #Call the fit method of DT to train the model or to learn the parameters of model
+predicted_DT = dTree.predict(X_test) #Predict 
+
+print('\033[1m''->'*63)
+print('\033[1m''Confusion Matrix\n',confusion_matrix(y_test,predicted_DT)) #for confusion matrix
+print('-'*30)
+DT_accuracy = accuracy_score(y_test,predicted_DT)
+print('Accuracy of Decision Tree :{:.2f}'.format(DT_accuracy)) #for accuracy score
+print('-'*30)
+print('\n Classification Report\n',classification_report(y_test,predicted_DT)) #for classification report
+print('->'*63)
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+Confusion Matrix
+ [[11020   993]
+ [ 1190   361]]
+------------------------------
+Accuracy of Decision Tree :0.84
+------------------------------
+
+ Classification Report
+               precision    recall  f1-score   support
+
+           0       0.90      0.92      0.91     12013
+           1       0.27      0.23      0.25      1551
+
+    accuracy                           0.84     13564
+   macro avg       0.58      0.58      0.58     13564
+weighted avg       0.83      0.84      0.83     13564
+
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+Feature importance test for decision tree
+In [38]:
+xvar = df_2.drop('Target', axis=1) #variables in x
+feature_cols = xvar.columns # columns in x
+feat_importance = dTree.tree_.compute_feature_importances(normalize=False) #compute feature importance
+
+
+feat_imp_dict = dict(zip(feature_cols, dTree.feature_importances_)) #dictionary of columns and importance
+feat_imp = pd.DataFrame.from_dict(feat_imp_dict, orient='index') #conversion of dictionary to dataframe
+feat_imp.sort_values(by=0, ascending=False) #sort in descending order
+Out[38]:
+0
+balance	0.442826
+age	0.248702
+poutcome	0.095115
+campaign	0.086817
+marital	0.040698
+previous	0.034347
+loan	0.025493
+housing	0.022714
+default	0.003286
+Pruning of Decision Tree
+In [39]:
+dTreeR = DecisionTreeClassifier(criterion = 'gini', max_depth = 3, random_state=1) #Instantiate Decision Tree with max_depth
+dTreeR.fit(X_train, y_train) #Call the fit method of DT to train the model or to learn the parameters of model
+predicted_DTR = dTreeR.predict(X_test) #Predict
+
+print('\033[1m''->'*63)
+print('\033[1m''Confusion Matrix\n',confusion_matrix(y_test,predicted_DTR)) #for confusion matrix
+print('-'*30)
+DTR_accuracy = accuracy_score(y_test,predicted_DTR)
+print('Accuracy of Decision Tree with Regularization:{:.2f}'.format(DTR_accuracy)) #for accuracy score
+print('-'*30)
+print('\n Classification Report\n',classification_report(y_test,predicted_DTR)) #for classification report
+print('->'*63)
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+Confusion Matrix
+ [[11826   187]
+ [ 1237   314]]
+------------------------------
+Accuracy of Decision Tree with Regularization:0.90
+------------------------------
+
+ Classification Report
+               precision    recall  f1-score   support
+
+           0       0.91      0.98      0.94     12013
+           1       0.63      0.20      0.31      1551
+
+    accuracy                           0.90     13564
+   macro avg       0.77      0.59      0.62     13564
+weighted avg       0.87      0.90      0.87     13564
+
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+In [40]:
+dot_data = StringIO() #string IO object
+export_graphviz(dTreeR, out_file=dot_data,  
+                filled=True, rounded=True,
+                special_characters=True,feature_names = feature_cols,class_names=['0','1']) #export graph data to dot format
+graph = pydotplus.graph_from_dot_data(dot_data.getvalue()) #create graph from dot data
+graph.write_png('DT.png')#create png
+Image(graph.create_png())#display image
+Out[40]:
+
+In [41]:
+feat_importance = dTreeR.tree_.compute_feature_importances(normalize=False) #compute feature importance
+
+
+feat_imp_dict = dict(zip(feature_cols, dTreeR.feature_importances_)) #dictionary of columns and importance
+feat_imp = pd.DataFrame.from_dict(feat_imp_dict, orient='index') #conversion of dictionary to dataframe
+feat_imp.sort_values(by=0, ascending=False) #sort in descending order
+Out[41]:
+0
+poutcome	0.547320
+previous	0.215141
+age	0.142976
+housing	0.087515
+marital	0.007048
+default	0.000000
+balance	0.000000
+loan	0.000000
+campaign	0.000000
+Bagging
+In [42]:
+bagc = BaggingClassifier(base_estimator=dTree, n_estimators=500,random_state=1) #Instantiate Bagging Classifier
+bagc = bagc.fit(X_train, y_train) #Call the fit method of Bagging classifier to train the model or to learn the parameters of model
+predicted_BAG = bagc.predict(X_test) #Predict
+
+
+print('\033[1m''->'*63)
+print('\033[1m''Confusion Matrix\n',confusion_matrix(y_test,predicted_BAG)) #for confusion matrix
+print('-'*30)
+BAG_accuracy = accuracy_score(y_test,predicted_BAG)
+print('Accuracy of Decision Tree :{:.2f}'.format(BAG_accuracy)) #for accuracy score
+print('-'*30)
+print('\n Classification Report\n',classification_report(y_test,predicted_BAG)) #for classification report
+print('->'*63)
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+Confusion Matrix
+ [[11617   396]
+ [ 1220   331]]
+------------------------------
+Accuracy of Decision Tree :0.88
+------------------------------
+
+ Classification Report
+               precision    recall  f1-score   support
+
+           0       0.90      0.97      0.93     12013
+           1       0.46      0.21      0.29      1551
+
+    accuracy                           0.88     13564
+   macro avg       0.68      0.59      0.61     13564
+weighted avg       0.85      0.88      0.86     13564
+
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+Adaptive Boosting
+In [43]:
+adab = AdaBoostClassifier(n_estimators=50, random_state=1) #Instantiate Adaptive boosting Classifier
+adab = adab.fit(X_train, y_train) #Call the fit method of Adaptive boosting Classifier to train the model or to learn the parameters of model
+predicted_ADA = adab.predict(X_test) #Predict
+
+
+
+print('\033[1m''->'*63)
+print('\033[1m''Confusion Matrix\n',confusion_matrix(y_test,predicted_ADA)) #for confusion matrix
+print('-'*30)
+ADA_accuracy = accuracy_score(y_test,predicted_ADA)
+print('Accuracy of KNN :{:.2f}'.format(ADA_accuracy)) #for accuracy score
+print('-'*30)
+print('\n Classification Report\n',classification_report(y_test,predicted_ADA)) #for classification report
+print('->'*63)
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+Confusion Matrix
+ [[11884   129]
+ [ 1309   242]]
+------------------------------
+Accuracy of KNN :0.89
+------------------------------
+
+ Classification Report
+               precision    recall  f1-score   support
+
+           0       0.90      0.99      0.94     12013
+           1       0.65      0.16      0.25      1551
+
+    accuracy                           0.89     13564
+   macro avg       0.78      0.57      0.60     13564
+weighted avg       0.87      0.89      0.86     13564
+
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+Gradient boosting
+In [44]:
+gradb = GradientBoostingClassifier(n_estimators = 100,random_state=1) #Instantiate Gradient boosting Classifier
+gradb = gradb.fit(X_train, y_train)#Call the fit method of Gradient boosting Classifier to train the model or to learn the parameters of model
+predicted_GRAD = gradb.predict(X_test) #Predict
+
+
+print('\033[1m''->'*63)
+print('\033[1m''Confusion Matrix\n',confusion_matrix(y_test,predicted_GRAD)) #for confusion matrix
+print('-'*30)
+GRAD_accuracy = accuracy_score(y_test,predicted_GRAD)
+print('Accuracy of KNN :{:.2f}'.format(GRAD_accuracy)) #for accuracy score
+print('-'*30)
+print('\n Classification Report\n',classification_report(y_test,predicted_GRAD)) #for classification report
+print('->'*63)
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+Confusion Matrix
+ [[11889   124]
+ [ 1305   246]]
+------------------------------
+Accuracy of KNN :0.89
+------------------------------
+
+ Classification Report
+               precision    recall  f1-score   support
+
+           0       0.90      0.99      0.94     12013
+           1       0.66      0.16      0.26      1551
+
+    accuracy                           0.89     13564
+   macro avg       0.78      0.57      0.60     13564
+weighted avg       0.87      0.89      0.86     13564
+
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+Random Forest
+In [45]:
+#n=100
+randf = RandomForestClassifier(n_estimators = 100, random_state=1, max_features=3)#Instantiate Random Forest Classifier
+randf = randf.fit(X_train, y_train) #Call the fit method of Random Forest Classifier to train the model or to learn the parameters of model
+predicted_RAN = randf.predict(X_test) #Predict
+
+print('\033[1m''->'*63)
+print('\033[1m''Confusion Matrix\n',confusion_matrix(y_test,predicted_RAN )) #for confusion matrix
+print('-'*30)
+RAN_accuracy = accuracy_score(y_test,predicted_RAN )
+print('Accuracy of KNN :{:.2f}'.format(RAN_accuracy)) #for accuracy score
+print('-'*30)
+print('\n Classification Report\n',classification_report(y_test,predicted_RAN )) #for classification report
+print('->'*63)
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+Confusion Matrix
+ [[11588   425]
+ [ 1211   340]]
+------------------------------
+Accuracy of KNN :0.88
+------------------------------
+
+ Classification Report
+               precision    recall  f1-score   support
+
+           0       0.91      0.96      0.93     12013
+           1       0.44      0.22      0.29      1551
+
+    accuracy                           0.88     13564
+   macro avg       0.67      0.59      0.61     13564
+weighted avg       0.85      0.88      0.86     13564
+
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+In [46]:
+#n=500
+randf = RandomForestClassifier(n_estimators = 500, random_state=1, max_features=5) #Instantiate Random Forest Classifier
+randf = randf.fit(X_train, y_train)  #Call the fit method of Random Forest Classifier to train the model or to learn the parameters of model
+predicted_RANN = randf.predict(X_test) #Predict
+
+print('\033[1m''->'*63)
+print('\033[1m''Confusion Matrix\n',confusion_matrix(y_test,predicted_RANN)) #for confusion matrix
+print('-'*30)
+RANN_accuracy = accuracy_score(y_test,predicted_RANN)
+print('Accuracy of KNN :{:.2f}'.format(RANN_accuracy)) #for accuracy score
+print('-'*30)
+print('\n Classification Report\n',classification_report(y_test,predicted_RANN)) #for classification report
+print('->'*63)
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+Confusion Matrix
+ [[11614   399]
+ [ 1216   335]]
+------------------------------
+Accuracy of KNN :0.88
+------------------------------
+
+ Classification Report
+               precision    recall  f1-score   support
+
+           0       0.91      0.97      0.93     12013
+           1       0.46      0.22      0.29      1551
+
+    accuracy                           0.88     13564
+   macro avg       0.68      0.59      0.61     13564
+weighted avg       0.85      0.88      0.86     13564
+
+->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->
+Models with accuracy scores
+In [47]:
+Scores = [('Naive bayes', NB_accuracy),
+      ('KNN', KNN_accuracy),
+      ('Logistic Regression', LR_accuracy),
+      ('SVC', SVC_accuracy ),
+      ('Decision Tree',DT_accuracy),
+      ('Decision Tree with Regularization',DTR_accuracy),
+      ('Bagging',BAG_accuracy),
+      ('Adaptive Boosting',ADA_accuracy),
+      ('Gradient Boosting',GRAD_accuracy),
+      ('Random Forest N=100',RAN_accuracy),
+      ('Random Forest N=500',RANN_accuracy)] #List of accuracy scores of all models
+
+Scores = pd.DataFrame(Scores,columns=['Model','Accuracy score']) #Conversion of list to dataframe
+
+print('\033[1m''Current Scores with Outliers replaced with mean:')
+Scores.sort_values(by='Accuracy score',ascending=False) #Sort values in descending manner
+Current Scores with Outliers replaced with mean:
+Out[47]:
+Model	Accuracy score
+3	SVC	0.895385
+5	Decision Tree with Regularization	0.895016
+2	Logistic Regression	0.894869
+8	Gradient Boosting	0.894648
+7	Adaptive Boosting	0.893984
+10	Random Forest N=500	0.880935
+6	Bagging	0.880861
+9	Random Forest N=100	0.879387
+1	KNN	0.873120
+4	Decision Tree	0.839059
+0	Naive bayes	0.829475
+In [48]:
+sns.lineplot(x=Scores['Model'],y=Scores['Accuracy score'],data=Scores,markers=True, dashes=False) #Countplot of Scores
+plt.xticks(rotation=90)
+plt.show()
+
+In [49]:
+print('\033[1m''Benchmark with Duration column and Outliers not handled:')
+Image(filename='img/Benchmark.PNG',width=400,height=500) #include Image
+Benchmark with Duration column and Outliers not handled:
+Out[49]:
+
+In [50]:
+print('\033[1m''Benchmark with Duration column and Outliers handled with Mean replacement:')
+Image(filename='img/BenchmarkWOutliers.PNG',width=400,height=500) #include Image
+Benchmark with Duration column and Outliers handled with Mean replacement:
+Out[50]:
+
+In [51]:
+print('\033[1m''Scores with Outliers replaced with median:')
+Image(filename='img/OutliersMed.PNG',width=400,height=500) #include Image
+Scores with Outliers replaced with median:
+Out[51]:
+
+In [52]:
+print('\033[1m''Scores without Outliers handeling:')
+Image(filename='img/WithOutliers.PNG',width=400,height=500) #include Image
+Scores without Outliers handeling:
+Out[52]:
+
+Conclusion:
+Comments on dataset:
+The models perform well in predicting the class 0 i.e. customer not subscribing to term deposit which can be seen in the confusion matrix of all models.
+The models do not perform well in predicting the class 1 i.e. customer subscribing to term deposit which can be seen in the confusion matrix of all models.
+Above situation occured because the Dataset is imbalanced. i.e. The ratio difference between class 0 and class 1 is huge. Which trained models to effectively identify class 0 but did not train suffuiciently to classify class 1.
+This situation could have been avoided if the datset was balanced.
+Along with imbalance, the dataset contained large number of unknown string values in 'job','education','contact' and 'poutcome' columns.
+Comments on Models:
+When benchmarking with 'duration' column, Support Vector Classifier achieved 90% model accuracy while naive bayes score was 85% accurate.
+SVC Perfomed better because of it's capabality of creating multiple hpyerplanes and then classifying the data.
+After removing the 'duration' column, The highest model score dropped by 0.5%.
+The Outliers did not affect much on accuracy scores of all models. As can be seen in above accuracy scores, getting rid of outliers by mean/median replacement did not affect the scores.
+In Decision Trees, Gradient boosting method always performed better for this dataset.
+While visualizing Decision Tree, The Pruned decision tree was easy to visualize as it had lesser leaf nodes than Tree which was not pruned.
+Miscellaneous Comments:
+After trying get_dummies the score did not show significant difference as well as I have skipped the get_dummies step because the dataset was creating more dimension, which was making the project more computationally intensive.
+If I had kept get_dummies step, then in production stage if the new dataset turned out to be huge in number of rows then this project would have taken a lot of time to execute.
+Outlier handeling did not make any significant difference in the accuracy scores of models.
+I have tried to keep minimum time complexity of this project.
+In [ ]:
