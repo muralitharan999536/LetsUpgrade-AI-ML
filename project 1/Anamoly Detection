@@ -1,0 +1,418 @@
+In [1]:
+import os
+import sys
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from scipy.io import loadmat
+import warnings
+warnings.simplefilter("ignore")
+Import Pyod and the methods
+In [2]:
+from pyod.models.pca import PCA
+from pyod.models.mcd import MCD
+from pyod.models.ocsvm import OCSVM
+from pyod.models.lof import LOF
+from pyod.models.cblof import CBLOF
+from pyod.models.knn import KNN
+from pyod.models.hbos import HBOS
+from pyod.models.abod import ABOD
+from pyod.models.iforest import IForest
+from pyod.models.feature_bagging import FeatureBagging
+Import Metrics Package
+In [3]:
+from pyod.utils.utility import standardizer
+from pyod.utils.utility import precision_n_scores
+from sklearn.metrics import roc_auc_score
+In [4]:
+mat_file_list=['arrhythmia.mat','cardio.mat','glass.mat','ionosphere.mat','letter.mat','lympho.mat','mnist.mat','musk.mat','optdigits.mat','pendigits.mat','pima.mat','satellite.mat','satimage-2.mat','shuttle.mat','shuttle.mat','vertebral.mat','vowels.mat','wbc.mat']
+In [5]:
+mat_file_list
+Out[5]:
+['arrhythmia.mat',
+ 'cardio.mat',
+ 'glass.mat',
+ 'ionosphere.mat',
+ 'letter.mat',
+ 'lympho.mat',
+ 'mnist.mat',
+ 'musk.mat',
+ 'optdigits.mat',
+ 'pendigits.mat',
+ 'pima.mat',
+ 'satellite.mat',
+ 'satimage-2.mat',
+ 'shuttle.mat',
+ 'shuttle.mat',
+ 'vertebral.mat',
+ 'vowels.mat',
+ 'wbc.mat']
+Loading mat file
+In [6]:
+df_columns=['Data','#Sample','#Dimensions','Outlier Perc','PCA','MCD','OCSVM','LOF','CBLOF','KNN','HBOS','ABOD','IFOREST','FEATUREBAGGING']
+Precision Time and Roc evolution tables creation
+In [7]:
+roc_df=pd.DataFrame(columns=df_columns)
+prn_df=pd.DataFrame(columns=df_columns)
+time_df=pd.DataFrame(columns=df_columns)
+print(roc_df,prn_df,time_df)
+Empty DataFrame
+Columns: [Data, #Sample, #Dimensions, Outlier Perc, PCA, MCD, OCSVM, LOF, CBLOF, KNN, HBOS, ABOD, IFOREST, FEATUREBAGGING]
+Index: [] Empty DataFrame
+Columns: [Data, #Sample, #Dimensions, Outlier Perc, PCA, MCD, OCSVM, LOF, CBLOF, KNN, HBOS, ABOD, IFOREST, FEATUREBAGGING]
+Index: [] Empty DataFrame
+Columns: [Data, #Sample, #Dimensions, Outlier Perc, PCA, MCD, OCSVM, LOF, CBLOF, KNN, HBOS, ABOD, IFOREST, FEATUREBAGGING]
+Index: []
+Exploring Mat files
+In [8]:
+from time import time
+random_state = np.random.RandomState(42)
+for mat_file in mat_file_list:
+    print("\n... Processing",mat_file,'.....')
+    mat = loadmat(mat_file)
+    
+    X = mat['X']
+    y = mat['y'].ravel()
+    
+    outliers_fraction = np.count_nonzero(y) / len(y)
+    outliers_percentage = round(outliers_fraction * 100, ndigits=4)
+    
+    roc_list = [mat_file[:-4], X.shape[0], X.shape[1], outliers_percentage]
+    prn_list = [mat_file[:-4], X.shape[0], X.shape[1], outliers_percentage]
+    time_list = [mat_file[:-4], X.shape[0], X.shape[1], outliers_percentage]
+    
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state = random_state)
+    
+    X_train_norm, X_test_norm = standardizer(X_train, X_test)
+    
+    classifiers = {'Angle-based Outlier Detector (ABOD)' : ABOD(contamination=outliers_fraction), 
+                  'Cluster-based Local Outlier Factor': CBLOF(contamination=outliers_fraction,check_estimator=False ,random_state=random_state),
+                  'Feature Bagging': FeatureBagging(contamination=outliers_fraction, random_state=random_state),
+                  'Historgram-base Outlier Detection (HBOS)': HBOS(contamination=outliers_fraction),
+                  'Isolation Forest' : IForest(contamination=outliers_fraction, random_state=random_state),
+                  'K Nearest Neighbors (KNN)': KNN(contamination=outliers_fraction),
+                  'Local Outlier Factor (LOF)' : LOF(contamination=outliers_fraction),
+                  'Minimum Covariance Determinant (MCD)': MCD(contamination=outliers_fraction, random_state=random_state),
+                  'One-class SVM (OCSVM)': OCSVM(contamination=outliers_fraction),
+                  'Principal Component Analysis (PCA)': PCA(contamination=outliers_fraction, random_state=random_state)}
+    for clf_name, clf in classifiers.items():
+        t0 = time()
+        clf.fit(X_train_norm)
+        test_scores = clf.decision_function(X_test_norm)
+        t1 = time()
+        duration = round(t1-t0, 4)
+        time_list.append(duration)
+        
+        roc = round(roc_auc_score(y_test, test_scores), 4)
+        prn = round(precision_n_scores(y_test, test_scores), 4)
+        
+        print(f"{clf_name} ROC: {roc}, precision @ rank n: {prn}, execution time: {duration}s' ")
+        
+        roc_list.append(roc)
+        prn_list.append(prn)
+        
+    temp_df = pd.DataFrame(time_list).transpose()
+    temp_df.columns = df_columns
+    time_df = pd.concat([time_df, temp_df], axis=0)
+    
+    temp_df = pd.DataFrame(roc_list).transpose()
+    temp_df.columns = df_columns
+    roc_df = pd.concat([roc_df, temp_df], axis=0)
+    
+    temp_df = pd.DataFrame(prn_list).transpose()
+    temp_df.columns = df_columns
+    prn_df = pd.concat([prn_df, temp_df], axis=0)
+... Processing arrhythmia.mat .....
+Angle-based Outlier Detector (ABOD) ROC: 0.7687, precision @ rank n: 0.3571, execution time: 1.3756s' 
+Cluster-based Local Outlier Factor ROC: 0.7684, precision @ rank n: 0.4643, execution time: 1.3559s' 
+Feature Bagging ROC: 0.7799, precision @ rank n: 0.5, execution time: 0.531s' 
+Historgram-base Outlier Detection (HBOS) ROC: 0.8511, precision @ rank n: 0.5714, execution time: 1.7943s' 
+Isolation Forest ROC: 0.8478, precision @ rank n: 0.5357, execution time: 0.4056s' 
+K Nearest Neighbors (KNN) ROC: 0.782, precision @ rank n: 0.5, execution time: 0.069s' 
+Local Outlier Factor (LOF) ROC: 0.7787, precision @ rank n: 0.4643, execution time: 0.056s' 
+Minimum Covariance Determinant (MCD) ROC: 0.8228, precision @ rank n: 0.4286, execution time: 0.7141s' 
+One-class SVM (OCSVM) ROC: 0.7986, precision @ rank n: 0.5, execution time: 0.035s' 
+Principal Component Analysis (PCA) ROC: 0.8, precision @ rank n: 0.5, execution time: 0.055s' 
+
+... Processing cardio.mat .....
+Angle-based Outlier Detector (ABOD) ROC: 0.5763, precision @ rank n: 0.1875, execution time: 0.4371s' 
+Cluster-based Local Outlier Factor ROC: 0.8221, precision @ rank n: 0.4844, execution time: 0.131s' 
+Feature Bagging ROC: 0.4879, precision @ rank n: 0.1406, execution time: 0.701s' 
+Historgram-base Outlier Detection (HBOS) ROC: 0.8453, precision @ rank n: 0.4688, execution time: 0.007s' 
+Isolation Forest ROC: 0.9316, precision @ rank n: 0.4531, execution time: 0.388s' 
+K Nearest Neighbors (KNN) ROC: 0.6959, precision @ rank n: 0.2812, execution time: 0.137s' 
+Local Outlier Factor (LOF) ROC: 0.4715, precision @ rank n: 0.125, execution time: 0.096s' 
+Minimum Covariance Determinant (MCD) ROC: 0.8781, precision @ rank n: 0.3906, execution time: 0.5646s' 
+One-class SVM (OCSVM) ROC: 0.9507, precision @ rank n: 0.5938, execution time: 0.066s' 
+Principal Component Analysis (PCA) ROC: 0.9638, precision @ rank n: 0.6875, execution time: 0.006s' 
+
+... Processing glass.mat .....
+Angle-based Outlier Detector (ABOD) ROC: 0.7104, precision @ rank n: 0.25, execution time: 0.047s' 
+Cluster-based Local Outlier Factor ROC: 0.8506, precision @ rank n: 0.25, execution time: 0.041s' 
+Feature Bagging ROC: 0.7043, precision @ rank n: 0.25, execution time: 0.047s' 
+Historgram-base Outlier Detection (HBOS) ROC: 0.6524, precision @ rank n: 0.0, execution time: 0.003s' 
+Isolation Forest ROC: 0.7195, precision @ rank n: 0.25, execution time: 0.364s' 
+K Nearest Neighbors (KNN) ROC: 0.7805, precision @ rank n: 0.25, execution time: 0.012s' 
+Local Outlier Factor (LOF) ROC: 0.7774, precision @ rank n: 0.25, execution time: 0.004s' 
+Minimum Covariance Determinant (MCD) ROC: 0.7165, precision @ rank n: 0.0, execution time: 0.046s' 
+One-class SVM (OCSVM) ROC: 0.6189, precision @ rank n: 0.25, execution time: 0.002s' 
+Principal Component Analysis (PCA) ROC: 0.622, precision @ rank n: 0.25, execution time: 0.003s' 
+
+... Processing ionosphere.mat .....
+Angle-based Outlier Detector (ABOD) ROC: 0.9004, precision @ rank n: 0.8214, execution time: 0.094s' 
+Cluster-based Local Outlier Factor ROC: 0.8952, precision @ rank n: 0.8036, execution time: 0.059s' 
+Feature Bagging ROC: 0.8933, precision @ rank n: 0.75, execution time: 0.077s' 
+Historgram-base Outlier Detection (HBOS) ROC: 0.5195, precision @ rank n: 0.3393, execution time: 0.01s' 
+Isolation Forest ROC: 0.8294, precision @ rank n: 0.6607, execution time: 0.339s' 
+K Nearest Neighbors (KNN) ROC: 0.9134, precision @ rank n: 0.8393, execution time: 0.016s' 
+Local Outlier Factor (LOF) ROC: 0.8989, precision @ rank n: 0.75, execution time: 0.006s' 
+Minimum Covariance Determinant (MCD) ROC: 0.9399, precision @ rank n: 0.8571, execution time: 0.071s' 
+One-class SVM (OCSVM) ROC: 0.8372, precision @ rank n: 0.7143, execution time: 0.006s' 
+Principal Component Analysis (PCA) ROC: 0.7971, precision @ rank n: 0.5893, execution time: 0.003s' 
+
+... Processing letter.mat .....
+Angle-based Outlier Detector (ABOD) ROC: 0.8465, precision @ rank n: 0.275, execution time: 0.405s' 
+Cluster-based Local Outlier Factor ROC: 0.7423, precision @ rank n: 0.175, execution time: 0.106s' 
+Feature Bagging ROC: 0.866, precision @ rank n: 0.4, execution time: 0.6591s' 
+Historgram-base Outlier Detection (HBOS) ROC: 0.5728, precision @ rank n: 0.125, execution time: 0.012s' 
+Isolation Forest ROC: 0.5836, precision @ rank n: 0.05, execution time: 0.4806s' 
+K Nearest Neighbors (KNN) ROC: 0.845, precision @ rank n: 0.3, execution time: 0.1361s' 
+Local Outlier Factor (LOF) ROC: 0.8409, precision @ rank n: 0.325, execution time: 0.0761s' 
+Minimum Covariance Determinant (MCD) ROC: 0.7499, precision @ rank n: 0.075, execution time: 1.1121s' 
+One-class SVM (OCSVM) ROC: 0.5744, precision @ rank n: 0.1, execution time: 0.077s' 
+Principal Component Analysis (PCA) ROC: 0.48, precision @ rank n: 0.05, execution time: 0.006s' 
+
+... Processing lympho.mat .....
+Angle-based Outlier Detector (ABOD) ROC: 0.9382, precision @ rank n: 0.4, execution time: 0.036s' 
+Cluster-based Local Outlier Factor ROC: 0.9709, precision @ rank n: 0.6, execution time: 0.052s' 
+Feature Bagging ROC: 0.9673, precision @ rank n: 0.6, execution time: 0.044s' 
+Historgram-base Outlier Detection (HBOS) ROC: 0.9964, precision @ rank n: 0.8, execution time: 0.01s' 
+Isolation Forest ROC: 0.9855, precision @ rank n: 0.6, execution time: 0.352s' 
+K Nearest Neighbors (KNN) ROC: 0.9636, precision @ rank n: 0.6, execution time: 0.007s' 
+Local Outlier Factor (LOF) ROC: 0.9636, precision @ rank n: 0.6, execution time: 0.003s' 
+Minimum Covariance Determinant (MCD) ROC: 0.9164, precision @ rank n: 0.6, execution time: 0.036s' 
+One-class SVM (OCSVM) ROC: 0.9636, precision @ rank n: 0.6, execution time: 0.002s' 
+Principal Component Analysis (PCA) ROC: 0.9818, precision @ rank n: 0.8, execution time: 0.001s' 
+
+... Processing mnist.mat .....
+Angle-based Outlier Detector (ABOD) ROC: 0.7813, precision @ rank n: 0.3562, execution time: 5.7652s' 
+Cluster-based Local Outlier Factor ROC: 0.8447, precision @ rank n: 0.4007, execution time: 0.585s' 
+Feature Bagging ROC: 0.7259, precision @ rank n: 0.3664, execution time: 44.5497s' 
+Historgram-base Outlier Detection (HBOS) ROC: 0.5675, precision @ rank n: 0.1199, execution time: 0.042s' 
+Isolation Forest ROC: 0.7813, precision @ rank n: 0.3116, execution time: 1.8947s' 
+K Nearest Neighbors (KNN) ROC: 0.8409, precision @ rank n: 0.4144, execution time: 6.3399s' 
+Local Outlier Factor (LOF) ROC: 0.7085, precision @ rank n: 0.339, execution time: 5.8265s' 
+Minimum Covariance Determinant (MCD) ROC: 0.863, precision @ rank n: 0.3973, execution time: 3.0406s' 
+One-class SVM (OCSVM) ROC: 0.8417, precision @ rank n: 0.3801, execution time: 3.4674s' 
+Principal Component Analysis (PCA) ROC: 0.8396, precision @ rank n: 0.3767, execution time: 0.12s' 
+
+... Processing musk.mat .....
+Angle-based Outlier Detector (ABOD) ROC: 0.0809, precision @ rank n: 0.0333, execution time: 2.2432s' 
+Cluster-based Local Outlier Factor ROC: 1.0, precision @ rank n: 1.0, execution time: 0.244s' 
+Feature Bagging ROC: 0.5228, precision @ rank n: 0.1667, execution time: 11.214s' 
+Historgram-base Outlier Detection (HBOS) ROC: 0.9999, precision @ rank n: 0.9667, execution time: 0.065s' 
+Isolation Forest ROC: 0.9992, precision @ rank n: 0.9, execution time: 1.2262s' 
+K Nearest Neighbors (KNN) ROC: 0.7348, precision @ rank n: 0.2333, execution time: 1.5363s' 
+Local Outlier Factor (LOF) ROC: 0.5323, precision @ rank n: 0.1333, execution time: 1.3762s' 
+Minimum Covariance Determinant (MCD) ROC: 1.0, precision @ rank n: 0.9667, execution time: 12.2965s' 
+One-class SVM (OCSVM) ROC: 1.0, precision @ rank n: 1.0, execution time: 0.9291s' 
+Principal Component Analysis (PCA) ROC: 1.0, precision @ rank n: 1.0, execution time: 0.122s' 
+
+... Processing optdigits.mat .....
+Angle-based Outlier Detector (ABOD) ROC: 0.4428, precision @ rank n: 0.0161, execution time: 2.4182s' 
+Cluster-based Local Outlier Factor ROC: 0.7852, precision @ rank n: 0.0, execution time: 0.291s' 
+Feature Bagging ROC: 0.4641, precision @ rank n: 0.0484, execution time: 12.1972s' 
+Historgram-base Outlier Detection (HBOS) ROC: 0.8822, precision @ rank n: 0.2581, execution time: 0.032s' 
+Isolation Forest ROC: 0.5442, precision @ rank n: 0.0161, execution time: 0.9916s' 
+K Nearest Neighbors (KNN) ROC: 0.3824, precision @ rank n: 0.0, execution time: 1.5472s' 
+Local Outlier Factor (LOF) ROC: 0.4584, precision @ rank n: 0.0484, execution time: 1.366s' 
+Minimum Covariance Determinant (MCD) ROC: 0.3486, precision @ rank n: 0.0, execution time: 1.3006s' 
+One-class SVM (OCSVM) ROC: 0.4972, precision @ rank n: 0.0, execution time: 1.0416s' 
+Principal Component Analysis (PCA) ROC: 0.504, precision @ rank n: 0.0, execution time: 0.04s' 
+
+... Processing pendigits.mat .....
+Angle-based Outlier Detector (ABOD) ROC: 0.7008, precision @ rank n: 0.0308, execution time: 1.6512s' 
+Cluster-based Local Outlier Factor ROC: 0.9609, precision @ rank n: 0.3077, execution time: 0.227s' 
+Feature Bagging ROC: 0.4687, precision @ rank n: 0.0462, execution time: 4.215s' 
+Historgram-base Outlier Detection (HBOS) ROC: 0.9294, precision @ rank n: 0.2615, execution time: 0.009s' 
+Isolation Forest ROC: 0.9482, precision @ rank n: 0.2615, execution time: 0.7551s' 
+K Nearest Neighbors (KNN) ROC: 0.7602, precision @ rank n: 0.0462, execution time: 0.572s' 
+Local Outlier Factor (LOF) ROC: 0.481, precision @ rank n: 0.0462, execution time: 0.493s' 
+Minimum Covariance Determinant (MCD) ROC: 0.8271, precision @ rank n: 0.0615, execution time: 2.4749s' 
+One-class SVM (OCSVM) ROC: 0.93, precision @ rank n: 0.2923, execution time: 0.8641s' 
+Principal Component Analysis (PCA) ROC: 0.9332, precision @ rank n: 0.3385, execution time: 0.008s' 
+
+... Processing pima.mat .....
+Angle-based Outlier Detector (ABOD) ROC: 0.6757, precision @ rank n: 0.5106, execution time: 0.168s' 
+Cluster-based Local Outlier Factor ROC: 0.684, precision @ rank n: 0.4681, execution time: 0.075s' 
+Feature Bagging ROC: 0.6446, precision @ rank n: 0.4468, execution time: 0.092s' 
+Historgram-base Outlier Detection (HBOS) ROC: 0.7169, precision @ rank n: 0.5213, execution time: 0.002s' 
+Isolation Forest ROC: 0.6777, precision @ rank n: 0.4787, execution time: 0.412s' 
+K Nearest Neighbors (KNN) ROC: 0.7252, precision @ rank n: 0.5106, execution time: 0.04s' 
+Local Outlier Factor (LOF) ROC: 0.6604, precision @ rank n: 0.4787, execution time: 0.01s' 
+Minimum Covariance Determinant (MCD) ROC: 0.7047, precision @ rank n: 0.4787, execution time: 0.063s' 
+One-class SVM (OCSVM) ROC: 0.6423, precision @ rank n: 0.4574, execution time: 0.008s' 
+Principal Component Analysis (PCA) ROC: 0.6639, precision @ rank n: 0.5, execution time: 0.002s' 
+
+... Processing satellite.mat .....
+Angle-based Outlier Detector (ABOD) ROC: 0.5681, precision @ rank n: 0.3918, execution time: 2.0373s' 
+Cluster-based Local Outlier Factor ROC: 0.7234, precision @ rank n: 0.5574, execution time: 0.249s' 
+Feature Bagging ROC: 0.557, precision @ rank n: 0.4051, execution time: 6.4533s' 
+Historgram-base Outlier Detection (HBOS) ROC: 0.7393, precision @ rank n: 0.5466, execution time: 0.018s' 
+Isolation Forest ROC: 0.7094, precision @ rank n: 0.578, execution time: 0.8832s' 
+K Nearest Neighbors (KNN) ROC: 0.6781, precision @ rank n: 0.4994, execution time: 0.9821s' 
+Local Outlier Factor (LOF) ROC: 0.5551, precision @ rank n: 0.4051, execution time: 0.9106s' 
+Minimum Covariance Determinant (MCD) ROC: 0.792, precision @ rank n: 0.6747, execution time: 2.2031s' 
+One-class SVM (OCSVM) ROC: 0.636, precision @ rank n: 0.5224, execution time: 1.0621s' 
+Principal Component Analysis (PCA) ROC: 0.5783, precision @ rank n: 0.4559, execution time: 0.023s' 
+
+... Processing satimage-2.mat .....
+Angle-based Outlier Detector (ABOD) ROC: 0.86, precision @ rank n: 0.2593, execution time: 1.7172s' 
+Cluster-based Local Outlier Factor ROC: 0.9987, precision @ rank n: 0.8889, execution time: 0.235s' 
+Feature Bagging ROC: 0.4971, precision @ rank n: 0.0741, execution time: 5.3642s' 
+Historgram-base Outlier Detection (HBOS) ROC: 0.9837, precision @ rank n: 0.5926, execution time: 0.023s' 
+Isolation Forest ROC: 0.9973, precision @ rank n: 0.8889, execution time: 0.8596s' 
+K Nearest Neighbors (KNN) ROC: 0.9505, precision @ rank n: 0.3704, execution time: 0.7602s' 
+Local Outlier Factor (LOF) ROC: 0.5006, precision @ rank n: 0.0741, execution time: 0.6391s' 
+Minimum Covariance Determinant (MCD) ROC: 0.9946, precision @ rank n: 0.5185, execution time: 2.0954s' 
+One-class SVM (OCSVM) ROC: 0.9976, precision @ rank n: 0.9259, execution time: 0.8802s' 
+Principal Component Analysis (PCA) ROC: 0.9841, precision @ rank n: 0.8519, execution time: 0.02s' 
+
+... Processing shuttle.mat .....
+Angle-based Outlier Detector (ABOD) ROC: 0.6186, precision @ rank n: 0.1918, execution time: 16.1384s' 
+Cluster-based Local Outlier Factor ROC: 0.6286, precision @ rank n: 0.2336, execution time: 0.6261s' 
+Feature Bagging ROC: 0.5211, precision @ rank n: 0.111, execution time: 45.9629s' 
+Historgram-base Outlier Detection (HBOS) ROC: 0.9851, precision @ rank n: 0.9857, execution time: 0.015s' 
+Isolation Forest ROC: 0.9972, precision @ rank n: 0.9337, execution time: 2.5843s' 
+K Nearest Neighbors (KNN) ROC: 0.645, precision @ rank n: 0.2199, execution time: 7.9258s' 
+Local Outlier Factor (LOF) ROC: 0.5347, precision @ rank n: 0.1406, execution time: 11.0555s' 
+Minimum Covariance Determinant (MCD) ROC: 0.9903, precision @ rank n: 0.7534, execution time: 13.2384s' 
+One-class SVM (OCSVM) ROC: 0.9922, precision @ rank n: 0.9553, execution time: 43.5847s' 
+Principal Component Analysis (PCA) ROC: 0.9902, precision @ rank n: 0.9503, execution time: 0.0356s' 
+
+... Processing shuttle.mat .....
+Angle-based Outlier Detector (ABOD) ROC: 0.6227, precision @ rank n: 0.1938, execution time: 16.3541s' 
+Cluster-based Local Outlier Factor ROC: 0.6578, precision @ rank n: 0.2262, execution time: 0.6081s' 
+Feature Bagging ROC: 0.5023, precision @ rank n: 0.0669, execution time: 48.8022s' 
+Historgram-base Outlier Detection (HBOS) ROC: 0.9868, precision @ rank n: 0.9386, execution time: 0.019s' 
+Isolation Forest ROC: 0.9975, precision @ rank n: 0.9563, execution time: 3.0074s' 
+K Nearest Neighbors (KNN) ROC: 0.6549, precision @ rank n: 0.2213, execution time: 9.1873s' 
+Local Outlier Factor (LOF) ROC: 0.5336, precision @ rank n: 0.155, execution time: 11.3846s' 
+Minimum Covariance Determinant (MCD) ROC: 0.9897, precision @ rank n: 0.7477, execution time: 11.8599s' 
+One-class SVM (OCSVM) ROC: 0.9923, precision @ rank n: 0.9605, execution time: 41.3258s' 
+Principal Component Analysis (PCA) ROC: 0.9907, precision @ rank n: 0.9577, execution time: 0.034s' 
+
+... Processing vertebral.mat .....
+Angle-based Outlier Detector (ABOD) ROC: 0.3688, precision @ rank n: 0.0, execution time: 0.061s' 
+Cluster-based Local Outlier Factor ROC: 0.3891, precision @ rank n: 0.0, execution time: 0.065s' 
+Feature Bagging ROC: 0.3688, precision @ rank n: 0.0, execution time: 0.045s' 
+Historgram-base Outlier Detection (HBOS) ROC: 0.3617, precision @ rank n: 0.0, execution time: 0.003s' 
+Isolation Forest ROC: 0.3539, precision @ rank n: 0.0, execution time: 0.384s' 
+K Nearest Neighbors (KNN) ROC: 0.3562, precision @ rank n: 0.0, execution time: 0.014s' 
+Local Outlier Factor (LOF) ROC: 0.3562, precision @ rank n: 0.0, execution time: 0.004s' 
+Minimum Covariance Determinant (MCD) ROC: 0.4203, precision @ rank n: 0.0, execution time: 0.045s' 
+One-class SVM (OCSVM) ROC: 0.4078, precision @ rank n: 0.0, execution time: 0.003s' 
+Principal Component Analysis (PCA) ROC: 0.3633, precision @ rank n: 0.0625, execution time: 0.0025s' 
+
+... Processing vowels.mat .....
+Angle-based Outlier Detector (ABOD) ROC: 0.8982, precision @ rank n: 0.2857, execution time: 0.3381s' 
+Cluster-based Local Outlier Factor ROC: 0.8608, precision @ rank n: 0.2143, execution time: 0.092s' 
+Feature Bagging ROC: 0.9124, precision @ rank n: 0.2143, execution time: 0.299s' 
+Historgram-base Outlier Detection (HBOS) ROC: 0.7567, precision @ rank n: 0.2143, execution time: 0.004s' 
+Isolation Forest ROC: 0.7758, precision @ rank n: 0.2143, execution time: 0.423s' 
+K Nearest Neighbors (KNN) ROC: 0.9746, precision @ rank n: 0.3571, execution time: 0.08s' 
+Local Outlier Factor (LOF) ROC: 0.9192, precision @ rank n: 0.2857, execution time: 0.032s' 
+Minimum Covariance Determinant (MCD) ROC: 0.6966, precision @ rank n: 0.0714, execution time: 0.884s' 
+One-class SVM (OCSVM) ROC: 0.8426, precision @ rank n: 0.2857, execution time: 0.044s' 
+Principal Component Analysis (PCA) ROC: 0.6907, precision @ rank n: 0.2143, execution time: 0.003s' 
+
+... Processing wbc.mat .....
+Angle-based Outlier Detector (ABOD) ROC: 0.9573, precision @ rank n: 0.5556, execution time: 0.097s' 
+Cluster-based Local Outlier Factor ROC: 0.9751, precision @ rank n: 0.6667, execution time: 0.069s' 
+Feature Bagging ROC: 0.979, precision @ rank n: 0.7778, execution time: 0.089s' 
+Historgram-base Outlier Detection (HBOS) ROC: 0.9876, precision @ rank n: 0.6667, execution time: 0.011s' 
+Isolation Forest ROC: 0.9674, precision @ rank n: 0.5556, execution time: 0.394s' 
+K Nearest Neighbors (KNN) ROC: 0.9713, precision @ rank n: 0.4444, execution time: 0.02s' 
+Local Outlier Factor (LOF) ROC: 0.979, precision @ rank n: 0.6667, execution time: 0.006s' 
+Minimum Covariance Determinant (MCD) ROC: 0.9658, precision @ rank n: 0.5556, execution time: 0.078s' 
+One-class SVM (OCSVM) ROC: 0.9782, precision @ rank n: 0.6667, execution time: 0.006s' 
+Principal Component Analysis (PCA) ROC: 0.9775, precision @ rank n: 0.6667, execution time: 0.003s' 
+In [15]:
+from IPython.core.display import HTML
+HTML("""
+<style>
+    table.dataframe thead th:first-child {
+        display: none;
+    }
+    table.dataframe tbody th {
+        display: none;
+    }
+</style>
+""")
+Out[15]:
+In [16]:
+roc_df
+Out[16]:
+Data	#Sample	#Dimensions	Outlier Perc	PCA	MCD	OCSVM	LOF	CBLOF	KNN	HBOS	ABOD	IFOREST	FEATUREBAGGING
+0	arrhythmia	452	274	14.6018	0.7687	0.7684	0.7799	0.8511	0.8478	0.782	0.7787	0.8228	0.7986	0.8
+0	cardio	1831	21	9.6122	0.5763	0.8221	0.4879	0.8453	0.9316	0.6959	0.4715	0.8781	0.9507	0.9638
+0	glass	214	9	4.2056	0.7104	0.8506	0.7043	0.6524	0.7195	0.7805	0.7774	0.7165	0.6189	0.622
+0	ionosphere	351	33	35.8974	0.9004	0.8952	0.8933	0.5195	0.8294	0.9134	0.8989	0.9399	0.8372	0.7971
+0	letter	1600	32	6.25	0.8465	0.7423	0.866	0.5728	0.5836	0.845	0.8409	0.7499	0.5744	0.48
+0	lympho	148	18	4.0541	0.9382	0.9709	0.9673	0.9964	0.9855	0.9636	0.9636	0.9164	0.9636	0.9818
+0	mnist	7603	100	9.2069	0.7813	0.8447	0.7259	0.5675	0.7813	0.8409	0.7085	0.863	0.8417	0.8396
+0	musk	3062	166	3.1679	0.0809	1	0.5228	0.9999	0.9992	0.7348	0.5323	1	1	1
+0	optdigits	5216	64	2.8758	0.4428	0.7852	0.4641	0.8822	0.5442	0.3824	0.4584	0.3486	0.4972	0.504
+0	pendigits	6870	16	2.2707	0.7008	0.9609	0.4687	0.9294	0.9482	0.7602	0.481	0.8271	0.93	0.9332
+0	pima	768	8	34.8958	0.6757	0.684	0.6446	0.7169	0.6777	0.7252	0.6604	0.7047	0.6423	0.6639
+0	satellite	6435	36	31.6395	0.5681	0.7234	0.557	0.7393	0.7094	0.6781	0.5551	0.792	0.636	0.5783
+0	satimage-2	5803	36	1.2235	0.86	0.9987	0.4971	0.9837	0.9973	0.9505	0.5006	0.9946	0.9976	0.9841
+0	shuttle	49097	9	7.1511	0.6186	0.6286	0.5211	0.9851	0.9972	0.645	0.5347	0.9903	0.9922	0.9902
+0	shuttle	49097	9	7.1511	0.6227	0.6578	0.5023	0.9868	0.9975	0.6549	0.5336	0.9897	0.9923	0.9907
+0	vertebral	240	6	12.5	0.3688	0.3891	0.3688	0.3617	0.3539	0.3562	0.3562	0.4203	0.4078	0.3633
+0	vowels	1456	12	3.4341	0.8982	0.8608	0.9124	0.7567	0.7758	0.9746	0.9192	0.6966	0.8426	0.6907
+0	wbc	378	30	5.5556	0.9573	0.9751	0.979	0.9876	0.9674	0.9713	0.979	0.9658	0.9782	0.9775
+In [17]:
+prn_df
+Out[17]:
+Data	#Sample	#Dimensions	Outlier Perc	PCA	MCD	OCSVM	LOF	CBLOF	KNN	HBOS	ABOD	IFOREST	FEATUREBAGGING
+0	arrhythmia	452	274	14.6018	0.3571	0.4643	0.5	0.5714	0.5357	0.5	0.4643	0.4286	0.5	0.5
+0	cardio	1831	21	9.6122	0.1875	0.4844	0.1406	0.4688	0.4531	0.2812	0.125	0.3906	0.5938	0.6875
+0	glass	214	9	4.2056	0.25	0.25	0.25	0	0.25	0.25	0.25	0	0.25	0.25
+0	ionosphere	351	33	35.8974	0.8214	0.8036	0.75	0.3393	0.6607	0.8393	0.75	0.8571	0.7143	0.5893
+0	letter	1600	32	6.25	0.275	0.175	0.4	0.125	0.05	0.3	0.325	0.075	0.1	0.05
+0	lympho	148	18	4.0541	0.4	0.6	0.6	0.8	0.6	0.6	0.6	0.6	0.6	0.8
+0	mnist	7603	100	9.2069	0.3562	0.4007	0.3664	0.1199	0.3116	0.4144	0.339	0.3973	0.3801	0.3767
+0	musk	3062	166	3.1679	0.0333	1	0.1667	0.9667	0.9	0.2333	0.1333	0.9667	1	1
+0	optdigits	5216	64	2.8758	0.0161	0	0.0484	0.2581	0.0161	0	0.0484	0	0	0
+0	pendigits	6870	16	2.2707	0.0308	0.3077	0.0462	0.2615	0.2615	0.0462	0.0462	0.0615	0.2923	0.3385
+0	pima	768	8	34.8958	0.5106	0.4681	0.4468	0.5213	0.4787	0.5106	0.4787	0.4787	0.4574	0.5
+0	satellite	6435	36	31.6395	0.3918	0.5574	0.4051	0.5466	0.578	0.4994	0.4051	0.6747	0.5224	0.4559
+0	satimage-2	5803	36	1.2235	0.2593	0.8889	0.0741	0.5926	0.8889	0.3704	0.0741	0.5185	0.9259	0.8519
+0	shuttle	49097	9	7.1511	0.1918	0.2336	0.111	0.9857	0.9337	0.2199	0.1406	0.7534	0.9553	0.9503
+0	shuttle	49097	9	7.1511	0.1938	0.2262	0.0669	0.9386	0.9563	0.2213	0.155	0.7477	0.9605	0.9577
+0	vertebral	240	6	12.5	0	0	0	0	0	0	0	0	0	0.0625
+0	vowels	1456	12	3.4341	0.2857	0.2143	0.2143	0.2143	0.2143	0.3571	0.2857	0.0714	0.2857	0.2143
+0	wbc	378	30	5.5556	0.5556	0.6667	0.7778	0.6667	0.5556	0.4444	0.6667	0.5556	0.6667	0.6667
+In [18]:
+time_df
+Out[18]:
+Data	#Sample	#Dimensions	Outlier Perc	PCA	MCD	OCSVM	LOF	CBLOF	KNN	HBOS	ABOD	IFOREST	FEATUREBAGGING
+0	arrhythmia	452	274	14.6018	1.3756	1.3559	0.531	1.7943	0.4056	0.069	0.056	0.7141	0.035	0.055
+0	cardio	1831	21	9.6122	0.4371	0.131	0.701	0.007	0.388	0.137	0.096	0.5646	0.066	0.006
+0	glass	214	9	4.2056	0.047	0.041	0.047	0.003	0.364	0.012	0.004	0.046	0.002	0.003
+0	ionosphere	351	33	35.8974	0.094	0.059	0.077	0.01	0.339	0.016	0.006	0.071	0.006	0.003
+0	letter	1600	32	6.25	0.405	0.106	0.6591	0.012	0.4806	0.1361	0.0761	1.1121	0.077	0.006
+0	lympho	148	18	4.0541	0.036	0.052	0.044	0.01	0.352	0.007	0.003	0.036	0.002	0.001
+0	mnist	7603	100	9.2069	5.7652	0.585	44.5497	0.042	1.8947	6.3399	5.8265	3.0406	3.4674	0.12
+0	musk	3062	166	3.1679	2.2432	0.244	11.214	0.065	1.2262	1.5363	1.3762	12.2965	0.9291	0.122
+0	optdigits	5216	64	2.8758	2.4182	0.291	12.1972	0.032	0.9916	1.5472	1.366	1.3006	1.0416	0.04
+0	pendigits	6870	16	2.2707	1.6512	0.227	4.215	0.009	0.7551	0.572	0.493	2.4749	0.8641	0.008
+0	pima	768	8	34.8958	0.168	0.075	0.092	0.002	0.412	0.04	0.01	0.063	0.008	0.002
+0	satellite	6435	36	31.6395	2.0373	0.249	6.4533	0.018	0.8832	0.9821	0.9106	2.2031	1.0621	0.023
+0	satimage-2	5803	36	1.2235	1.7172	0.235	5.3642	0.023	0.8596	0.7602	0.6391	2.0954	0.8802	0.02
+0	shuttle	49097	9	7.1511	16.1384	0.6261	45.9629	0.015	2.5843	7.9258	11.0555	13.2384	43.5847	0.0356
+0	shuttle	49097	9	7.1511	16.3541	0.6081	48.8022	0.019	3.0074	9.1873	11.3846	11.8599	41.3258	0.034
+0	vertebral	240	6	12.5	0.061	0.065	0.045	0.003	0.384	0.014	0.004	0.045	0.003	0.0025
+0	vowels	1456	12	3.4341	0.3381	0.092	0.299	0.004	0.423	0.08	0.032	0.884	0.044	0.003
+0	wbc	378	30	5.5556	0.097	0.069	0.089	0.011	0.394	0.02	0.006	0.078	0.006	0.003
